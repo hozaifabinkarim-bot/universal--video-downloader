@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OneClick — Video Downloader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0a;--surface:#111;--surface2:#1a1a1a;
+    --border:#2a2a2a;--border-bright:#3d3d3d;
+    --text:#e8e4dc;--text-dim:#6b6560;--text-mid:#a09890;
+    --accent:#f5a623;--accent-dim:rgba(245,166,35,.12);--accent-glow:rgba(245,166,35,.25);
+    --red:#e05252;--green:#52b788;--blue:#4a9eff;
+    --mono:'Space Mono',monospace;--sans:'Syne',sans-serif;
+  }
+  [data-theme="light"]{
+    --bg:#f0ece4;--surface:#faf8f4;--surface2:#ede9e1;
+    --border:#d4cfc6;--border-bright:#b8b2a8;
+    --text:#1a1714;--text-dim:#9b958c;--text-mid:#6b6560;
+    --accent:#d4860a;--accent-dim:rgba(212,134,10,.10);--accent-glow:rgba(212,134,10,.20);
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:var(--sans);background:var(--bg);color:var(--text);
+    min-height:100vh;display:flex;flex-direction:column;
+    transition:background .3s,color .3s;overflow-x:hidden;
+  }
+  body::before{
+    content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+    background-image:linear-gradient(var(--border) 1px,transparent 1px),
+      linear-gradient(90deg,var(--border) 1px,transparent 1px);
+    background-size:60px 60px;opacity:.35;
+  }
+
+  /* ── BACKEND BANNER ── */
+  #backend-banner{
+    position:relative;z-index:20;
+    background:rgba(74,158,255,.1);border-bottom:1px solid rgba(74,158,255,.35);
+    padding:12px 24px;
+  }
+  #backend-banner .banner-inner{
+    max-width:720px;margin:0 auto;
+    display:flex;align-items:center;flex-wrap:wrap;gap:10px;
+  }
+  #backend-banner.warn-mode{
+    background:rgba(224,82,82,.1);border-bottom-color:rgba(224,82,82,.35);
+  }
+  #backend-banner .banner-icon{font-size:16px;flex-shrink:0}
+  #backend-banner .banner-text{
+    font-family:var(--mono);font-size:11px;color:var(--text-mid);
+    flex:1;min-width:200px;line-height:1.6;
+  }
+  #backend-banner .banner-text strong{color:var(--text)}
+  #backend-banner .banner-text a{color:var(--accent);text-decoration:none}
+  #backend-banner .banner-text a:hover{text-decoration:underline}
+  .url-config-wrap{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  #backend-url-input{
+    font-family:var(--mono);font-size:11px;color:var(--text);
+    background:var(--surface2);border:1px solid var(--border-bright);
+    border-radius:5px;padding:6px 10px;outline:none;width:240px;
+    caret-color:var(--accent);transition:border-color .2s;
+  }
+  #backend-url-input:focus{border-color:var(--accent)}
+  #backend-url-input::placeholder{color:var(--text-dim)}
+  .banner-btn{
+    font-family:var(--mono);font-size:11px;font-weight:700;
+    padding:6px 14px;border-radius:5px;border:none;cursor:pointer;
+    white-space:nowrap;transition:all .2s;
+  }
+  .banner-btn.primary{background:var(--accent);color:#000}
+  .banner-btn.primary:hover{background:#ffba45}
+  .banner-btn.ghost{background:var(--surface2);color:var(--text-mid);border:1px solid var(--border-bright)}
+  .banner-btn.ghost:hover{border-color:var(--accent);color:var(--accent)}
+  #backend-ok-badge{
+    display:none;font-family:var(--mono);font-size:11px;
+    color:var(--green);letter-spacing:.08em;
+  }
+
+  /* ── HEADER ── */
+  header{
+    position:relative;z-index:10;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:20px 32px;border-bottom:1px solid var(--border);
+  }
+  .logo{font-family:var(--mono);font-size:13px;font-weight:700;
+    letter-spacing:.08em;color:var(--text);display:flex;align-items:center;gap:10px}
+  .logo-mark{width:28px;height:28px;background:var(--accent);
+    display:flex;align-items:center;justify-content:center;border-radius:4px}
+  .logo-mark svg{width:14px;height:14px}
+  .header-right{display:flex;align-items:center;gap:12px}
+  .version-tag{font-family:var(--mono);font-size:10px;color:var(--text-dim);
+    letter-spacing:.1em;padding:3px 8px;border:1px solid var(--border);border-radius:3px}
+  .theme-btn{
+    background:none;border:1px solid var(--border);color:var(--text-mid);
+    width:32px;height:32px;border-radius:6px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:all .2s;font-size:14px;
+  }
+  .theme-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+
+  /* ── MAIN ── */
+  main{position:relative;z-index:5;flex:1;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;padding:60px 24px}
+  .hero-label{font-family:var(--mono);font-size:11px;letter-spacing:.2em;
+    color:var(--accent);text-transform:uppercase;margin-bottom:20px;
+    display:flex;align-items:center;gap:8px}
+  .hero-label::before,.hero-label::after{
+    content:'';display:block;width:32px;height:1px;background:var(--accent);opacity:.5}
+  h1{font-family:var(--sans);font-size:clamp(38px,7vw,76px);font-weight:800;
+    line-height:.95;letter-spacing:-.03em;text-align:center;margin-bottom:14px}
+  h1 em{font-style:normal;color:var(--accent);display:block}
+  .hero-sub{font-family:var(--mono);font-size:12px;color:var(--text-dim);
+    letter-spacing:.04em;margin-bottom:52px;text-align:center;line-height:1.8}
+
+  /* ── INPUT CARD ── */
+  .input-card{
+    width:100%;max-width:720px;background:var(--surface);
+    border:1px solid var(--border-bright);border-radius:12px;overflow:hidden;
+    transition:border-color .3s,box-shadow .3s;
+  }
+  .input-card:focus-within{
+    border-color:var(--accent);
+    box-shadow:0 0 0 4px var(--accent-glow),0 20px 60px rgba(0,0,0,.4);
+  }
+  .input-top{display:flex;align-items:center;padding:6px 6px 6px 20px;gap:10px}
+  .url-pfx{font-family:var(--mono);font-size:11px;color:var(--text-dim);
+    letter-spacing:.06em;white-space:nowrap;flex-shrink:0}
+  #url-input{
+    flex:1;background:none;border:none;outline:none;
+    font-family:var(--mono);font-size:14px;color:var(--text);
+    padding:14px 0;min-width:0;caret-color:var(--accent);
+  }
+  #url-input::placeholder{color:var(--text-dim)}
+  .paste-btn{
+    flex-shrink:0;background:var(--surface2);border:1px solid var(--border);
+    color:var(--text-mid);font-family:var(--mono);font-size:11px;
+    letter-spacing:.08em;padding:8px 14px;border-radius:6px;
+    cursor:pointer;transition:all .2s;white-space:nowrap;
+  }
+  .paste-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+  .divider{height:1px;background:var(--border)}
+  .input-bottom{display:flex;align-items:center;justify-content:space-between;
+    padding:10px 16px;gap:12px}
+  .fmt-group{display:flex;gap:6px;align-items:center}
+  .fmt-label{font-family:var(--mono);font-size:10px;color:var(--text-dim);
+    letter-spacing:.12em;text-transform:uppercase;margin-right:4px}
+  .fmt{
+    font-family:var(--mono);font-size:11px;padding:5px 12px;
+    border-radius:4px;border:1px solid var(--border);background:none;
+    color:var(--text-mid);cursor:pointer;transition:all .2s;letter-spacing:.04em;
+  }
+  .fmt.active{background:var(--accent);border-color:var(--accent);color:#000;font-weight:700}
+  .fmt:not(.active):hover{border-color:var(--border-bright);color:var(--text)}
+  .dl-btn{
+    display:flex;align-items:center;gap:9px;background:var(--accent);color:#000;
+    font-family:var(--sans);font-weight:700;font-size:14px;
+    padding:10px 22px;border:none;border-radius:7px;
+    cursor:pointer;transition:all .2s;white-space:nowrap;
+  }
+  .dl-btn:hover:not(:disabled){
+    background:#ffba45;transform:translateY(-1px);box-shadow:0 6px 20px var(--accent-glow)}
+  .dl-btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+  .dl-btn svg{width:15px;height:15px;flex-shrink:0}
+
+  /* ── STATUS ZONE ── */
+  #status-zone{width:100%;max-width:720px;margin-top:20px}
+
+  /* ── CARD ── */
+  .card{
+    background:var(--surface);border:1px solid var(--border-bright);
+    border-radius:12px;overflow:hidden;
+    animation:slideUp .35s cubic-bezier(.22,1,.36,1);
+  }
+  @keyframes slideUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+  .preview-row{display:flex}
+  .thumb-wrap{
+    flex-shrink:0;width:140px;height:90px;background:var(--surface2);
+    overflow:hidden;border-right:1px solid var(--border);
+    position:relative;display:flex;align-items:center;justify-content:center;
+  }
+  .thumb-wrap img{width:100%;height:100%;object-fit:cover}
+  .thumb-ph{display:flex;flex-direction:column;align-items:center;gap:6px;
+    color:var(--text-dim);font-size:11px;font-family:var(--mono)}
+  .thumb-ph svg{width:24px;height:24px;opacity:.4}
+  .dur-badge{
+    position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,.75);
+    color:#fff;font-family:var(--mono);font-size:10px;
+    padding:2px 6px;border-radius:3px;
+  }
+  .meta{flex:1;padding:14px 18px;min-width:0}
+  .meta-platform{font-family:var(--mono);font-size:10px;letter-spacing:.12em;
+    color:var(--accent);text-transform:uppercase;margin-bottom:5px}
+  .meta-title{font-weight:700;font-size:15px;line-height:1.3;margin-bottom:8px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stats{display:flex;gap:16px;flex-wrap:wrap}
+  .stat{display:flex;flex-direction:column;gap:2px}
+  .sl{font-family:var(--mono);font-size:9px;color:var(--text-dim);
+    letter-spacing:.12em;text-transform:uppercase}
+  .sv{font-family:var(--mono);font-size:12px;color:var(--text)}
+  .res-badge{
+    display:inline-block;background:var(--accent-dim);color:var(--accent);
+    border:1px solid var(--accent);font-family:var(--mono);font-size:10px;
+    font-weight:700;padding:1px 7px;border-radius:3px;letter-spacing:.06em;
+  }
+  /* Progress */
+  .prog-wrap{padding:16px 20px;border-top:1px solid var(--border)}
+  .prog-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .prog-lbl{font-family:var(--mono);font-size:11px;color:var(--text-mid);letter-spacing:.06em}
+  .prog-pct{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent)}
+  .prog-track{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+  .prog-fill{
+    height:100%;background:var(--accent);border-radius:2px;
+    transition:width .4s cubic-bezier(.4,0,.2,1);position:relative;overflow:hidden;
+  }
+  .prog-fill.green{background:var(--green)}
+  .prog-fill::after{
+    content:'';position:absolute;inset:0 auto 0 0;width:60px;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);
+    animation:shim 1.4s infinite;
+  }
+  @keyframes shim{from{transform:translateX(-80px)}to{transform:translateX(300px)}}
+  .steps{display:flex;gap:6px;margin-top:10px}
+  .step{flex:1;text-align:center;font-family:var(--mono);font-size:9px;
+    letter-spacing:.1em;color:var(--text-dim);text-transform:uppercase;
+    padding-top:8px;border-top:2px solid var(--border);transition:all .3s}
+  .step.done{color:var(--green);border-top-color:var(--green)}
+  .step.active{color:var(--accent);border-top-color:var(--accent)}
+  /* Alert */
+  .alert{
+    display:flex;align-items:flex-start;gap:14px;padding:16px 18px;
+    border-radius:10px;border:1px solid;animation:slideUp .3s ease;
+  }
+  .alert.error{background:rgba(224,82,82,.08);border-color:rgba(224,82,82,.4)}
+  .alert.warn{background:rgba(245,166,35,.08);border-color:rgba(245,166,35,.4)}
+  .alert.info{background:rgba(74,158,255,.08);border-color:rgba(74,158,255,.4)}
+  .alert-icon{font-size:18px;flex-shrink:0;line-height:1.4}
+  .alert-title{font-weight:700;font-size:14px;margin-bottom:3px}
+  .alert.error .alert-title{color:var(--red)}
+  .alert.warn  .alert-title{color:var(--accent)}
+  .alert.info  .alert-title{color:var(--blue)}
+  .alert-msg{font-family:var(--mono);font-size:12px;color:var(--text-mid);line-height:1.7}
+  .alert-msg a{color:var(--accent);text-decoration:none}
+  .alert-msg a:hover{text-decoration:underline}
+  .alert-actions{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+  .abtn{font-family:var(--sans);font-weight:700;font-size:12px;
+    padding:7px 16px;border-radius:5px;cursor:pointer;border:1px solid;transition:all .2s}
+  .abtn-primary{background:var(--accent);border-color:var(--accent);color:#000}
+  .abtn-primary:hover{background:#ffba45}
+  .abtn-ghost{background:none;border-color:var(--border);color:var(--text-mid)}
+  .abtn-ghost:hover{border-color:var(--border-bright);color:var(--text)}
+  /* Ready */
+  .ready-card{
+    display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding:18px 20px;background:rgba(82,183,136,.08);
+    border:1px solid rgba(82,183,136,.35);border-radius:10px;
+    animation:slideUp .35s cubic-bezier(.22,1,.36,1);
+  }
+  .ready-info{display:flex;align-items:center;gap:12px}
+  .ready-icon{font-size:22px}
+  .ready-title{font-weight:700;font-size:14px;color:var(--green)}
+  .ready-sub{font-family:var(--mono);font-size:11px;color:var(--text-mid);margin-top:2px}
+  .save-btn{
+    background:var(--green);color:#000;font-family:var(--sans);font-weight:700;
+    font-size:13px;padding:10px 20px;border:none;border-radius:7px;
+    cursor:pointer;white-space:nowrap;transition:all .2s;
+    display:flex;align-items:center;gap:8px;text-decoration:none;
+  }
+  .save-btn:hover{background:#6bcf9a;transform:translateY(-1px)}
+  .save-btn svg{width:14px;height:14px;fill:#000}
+  /* Platforms */
+  .platform-section{margin-top:48px;text-align:center}
+  .platform-label{font-family:var(--mono);font-size:10px;color:var(--text-dim);
+    letter-spacing:.16em;text-transform:uppercase;margin-bottom:16px}
+  .platform-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+  .pill{font-family:var(--mono);font-size:11px;padding:6px 14px;
+    border-radius:20px;border:1px solid var(--border);color:var(--text-dim);
+    background:var(--surface)}
+  /* Footer */
+  footer{position:relative;z-index:5;border-top:1px solid var(--border);
+    padding:18px 32px;display:flex;align-items:center;
+    justify-content:space-between;flex-wrap:wrap;gap:8px}
+  .footer-legal{font-family:var(--mono);font-size:10px;color:var(--text-dim);
+    line-height:1.7;max-width:600px}
+  .footer-stats{display:flex;gap:20px}
+  .fstat{text-align:right}
+  .fv{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent)}
+  .fl{font-family:var(--mono);font-size:9px;color:var(--text-dim);
+    letter-spacing:.1em;text-transform:uppercase}
+  /* Spinner */
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .spin{display:inline-block;animation:spin .8s linear infinite}
+  /* Responsive */
+  @media(max-width:600px){
+    header{padding:16px}main{padding:36px 16px}
+    .input-bottom{flex-direction:column;align-items:stretch;gap:10px}
+    .fmt-group{justify-content:flex-start}.dl-btn{justify-content:center}
+    h1{font-size:36px}.preview-row{flex-direction:column}
+    .thumb-wrap{width:100%;height:160px;border-right:none;border-bottom:1px solid var(--border)}
+    .footer-stats{display:none}footer{padding:16px}
+    .ready-card{flex-direction:column;align-items:flex-start}
+    #backend-url-input{width:100%}.url-config-wrap{flex-direction:column;align-items:stretch}
+  }
+</style>
+</head>
+<body>
+
+<!-- Backend connection banner -->
+<div id="backend-banner" style="display:none">
+  <div class="banner-inner">
+    <span class="banner-icon" id="banner-icon">🔌</span>
+    <div class="banner-text" id="banner-text"></div>
+    <div class="url-config-wrap" id="url-config" style="display:none">
+      <input type="url" id="backend-url-input" placeholder="https://your-app.onrender.com" autocomplete="off" spellcheck="false">
+      <button class="banner-btn primary" id="connect-btn">Connect</button>
+    </div>
+    <span id="backend-ok-badge">✅ CONNECTED</span>
+  </div>
+</div>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">
+      <svg viewBox="0 0 16 16" fill="#000"><path d="M3 11L8 2L13 11H9.5V14H6.5V11H3Z"/></svg>
+    </div>
+    ONECLICK
+  </div>
+  <div class="header-right">
+    <span class="version-tag">v2.0.0</span>
+    <button class="theme-btn" id="theme-btn">☀</button>
+  </div>
+</header>
+
+<main>
+  <div class="hero-label">Universal Video Downloader</div>
+  <h1>Paste.<br><em>Download.</em></h1>
+  <p class="hero-sub">// SUPPORTS 1000+ SITES · HIGHEST QUALITY · FFMPEG MUXING</p>
+
+  <div class="input-card">
+    <div class="input-top">
+      <span class="url-pfx">URL://</span>
+      <input type="url" id="url-input" placeholder="paste your video link here…"
+             autocomplete="off" spellcheck="false">
+      <button class="paste-btn" id="paste-btn">⌘ PASTE</button>
+    </div>
+    <div class="divider"></div>
+    <div class="input-bottom">
+      <div class="fmt-group">
+        <span class="fmt-label">FORMAT</span>
+        <button class="fmt active" data-fmt="mp4">MP4</button>
+        <button class="fmt" data-fmt="mp3">MP3</button>
+        <button class="fmt" data-fmt="aac">AAC</button>
+        <button class="fmt" data-fmt="webm">WEBM</button>
+      </div>
+      <button class="dl-btn" id="dl-btn" disabled>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round">
+          <path d="M8 1v9M5 7l3 3 3-3M2 12v2h12v-2"/>
+        </svg>
+        Download
+      </button>
+    </div>
+  </div>
+
+  <div id="status-zone"></div>
+
+  <div class="platform-section">
+    <p class="platform-label">Supported Platforms</p>
+    <div class="platform-grid">
+      <span class="pill">YouTube</span><span class="pill">Vimeo</span>
+      <span class="pill">TikTok</span><span class="pill">Instagram</span>
+      <span class="pill">Twitter / X</span><span class="pill">Facebook</span>
+      <span class="pill">Dailymotion</span><span class="pill">Twitch</span>
+      <span class="pill">Reddit</span><span class="pill">Bilibili</span>
+      <span class="pill">+ 990 more</span>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <p class="footer-legal">
+    ⚠ Personal use only. Do not download copyrighted content without rights.
+    Users are solely responsible for compliance with platform terms of service.
+  </p>
+  <div class="footer-stats">
+    <div class="fstat"><div class="fv">95%</div><div class="fl">Success Rate</div></div>
+    <div class="fstat"><div class="fv">&lt;15s</div><div class="fl">Avg Process</div></div>
+    <div class="fstat"><div class="fv">4K</div><div class="fl">Max Quality</div></div>
+  </div>
+</footer>
+
+<script>
+'use strict';
+// ══════════════════════════════════════════════════════════
+//  CONFIG
+//  If your Flask backend is on a different domain (e.g. Render),
+//  set BACKEND_URL to that URL. Leave empty if Flask serves this file.
+// ══════════════════════════════════════════════════════════
+let BACKEND_URL = localStorage.getItem('oneclick_backend_url') || '';
+// Strip trailing slash
+BACKEND_URL = BACKEND_URL.replace(/\/$/, '');
+
+// ══════════════════════════════════════════════════════════
+//  THEME
+// ══════════════════════════════════════════════════════════
+const themeBtn = document.getElementById('theme-btn');
+const root     = document.documentElement;
+const initTheme = localStorage.getItem('oneclick_theme') ||
+  (window.matchMedia('(prefers-color-scheme:light)').matches ? 'light' : 'dark');
+root.dataset.theme = initTheme;
+themeBtn.textContent = initTheme === 'dark' ? '☀' : '☾';
+themeBtn.onclick = () => {
+  const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+  root.dataset.theme = next;
+  themeBtn.textContent = next === 'dark' ? '☀' : '☾';
+  localStorage.setItem('oneclick_theme', next);
+};
+
+// ══════════════════════════════════════════════════════════
+//  FORMAT CHIPS
+// ══════════════════════════════════════════════════════════
+let selectedFmt = 'mp4';
+document.querySelectorAll('.fmt').forEach(c => {
+  c.onclick = () => {
+    document.querySelectorAll('.fmt').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    selectedFmt = c.dataset.fmt;
+  };
+});
+
+// ══════════════════════════════════════════════════════════
+//  REFS
+// ══════════════════════════════════════════════════════════
+const urlInput   = document.getElementById('url-input');
+const dlBtn      = document.getElementById('dl-btn');
+const pasteBtn   = document.getElementById('paste-btn');
+const statusZone = document.getElementById('status-zone');
+
+let appState  = 'idle';  // idle | checking | fetching-info | processing | done
+let metaCache = null;
+let sseSource = null;
+let backendOk = false;
+
+// ══════════════════════════════════════════════════════════
+//  BACKEND HEALTH CHECK
+// ══════════════════════════════════════════════════════════
+const banner     = document.getElementById('backend-banner');
+const bannerIcon = document.getElementById('banner-icon');
+const bannerText = document.getElementById('banner-text');
+const urlConfig  = document.getElementById('url-config');
+const okBadge    = document.getElementById('backend-ok-badge');
+
+async function checkBackend(url) {
+  const base = (url || BACKEND_URL || '').replace(/\/$/, '');
+  try {
+    const res = await fetchWithTimeout(`${base}/api/health`, {}, 6000);
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    const data = await res.json();
+    return data.status === 'ok';
+  } catch {
+    return false;
+  }
+}
+
+async function initBackend() {
+  banner.style.display = '';
+  bannerIcon.textContent = '⏳';
+  bannerText.innerHTML = '<strong>Checking backend connection…</strong>';
+  urlConfig.style.display = 'none';
+  okBadge.style.display = 'none';
+
+  const ok = await checkBackend(BACKEND_URL);
+
+  if (ok) {
+    setBannerOk();
+  } else {
+    setBannerFail();
+  }
+}
+
+function setBannerOk() {
+  backendOk = true;
+  banner.classList.remove('warn-mode');
+  bannerIcon.textContent = '✅';
+  bannerText.innerHTML   = '<strong>Backend connected</strong> — ready to download.';
+  urlConfig.style.display = 'none';
+  okBadge.style.display   = 'inline';
+  // Auto-hide after 3s
+  setTimeout(() => { banner.style.display = 'none'; }, 3000);
+}
+
+function setBannerFail() {
+  backendOk = false;
+  banner.classList.add('warn-mode');
+  bannerIcon.textContent = '⚠️';
+  bannerText.innerHTML = `
+    <strong>Backend not connected.</strong>
+    This page needs a Python backend to actually download videos.
+    GitHub Pages can only serve HTML — it cannot run Python.<br>
+    ① Deploy the full app to <a href="https://render.com" target="_blank">Render.com</a>
+    (free, uses the Dockerfile — takes ~3 min)<br>
+    ② OR enter your backend URL below if already deployed:`;
+  urlConfig.style.display = 'flex';
+  okBadge.style.display   = 'none';
+}
+
+// Connect button
+document.getElementById('connect-btn').onclick = async () => {
+  const val = document.getElementById('backend-url-input').value.trim().replace(/\/$/, '');
+  if (!val) return;
+  bannerText.innerHTML = `<span class="spin">⏳</span> Testing ${val}/api/health …`;
+  const ok = await checkBackend(val);
+  if (ok) {
+    BACKEND_URL = val;
+    localStorage.setItem('oneclick_backend_url', val);
+    setBannerOk();
+  } else {
+    bannerText.innerHTML = `
+      <strong style="color:var(--red)">Could not connect to ${val}</strong><br>
+      Make sure the backend is running and CORS is enabled. Try again:`;
+  }
+};
+
+document.getElementById('backend-url-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('connect-btn').click();
+});
+
+// ══════════════════════════════════════════════════════════
+//  PASTE BUTTON — triple fallback
+// ══════════════════════════════════════════════════════════
+pasteBtn.onclick = async () => {
+  urlInput.focus();
+  // 1. Modern Clipboard API
+  try {
+    const txt = await navigator.clipboard.readText();
+    if (txt?.trim()) { setValue(txt.trim()); return; }
+  } catch (_) {}
+  // 2. execCommand (works in sandboxed iframes)
+  try { if (document.execCommand('paste')) return; } catch (_) {}
+  // 3. Tell user to Ctrl+V
+  pasteBtn.textContent = '⌨ Ctrl+V';
+  pasteBtn.style.cssText = 'border-color:var(--accent);color:var(--accent)';
+  urlInput.select();
+  setTimeout(() => { pasteBtn.textContent = '⌘ PASTE'; pasteBtn.style.cssText = ''; }, 2500);
+};
+
+// Real paste event — reads clipboardData directly (works in iframes & GitHub Pages)
+urlInput.addEventListener('paste', e => {
+  const txt = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+  if (!txt) return;
+  e.preventDefault();
+  setValue(txt.trim());
+});
+
+urlInput.addEventListener('input', () => {
+  const v = urlInput.value.trim();
+  dlBtn.disabled = !isUrl(v);
+  if (!v) resetState();
+});
+
+urlInput.addEventListener('blur', () => {
+  const v = urlInput.value.trim();
+  if (v && !isUrl(v) && appState === 'idle') {
+    showStatus('error', 'Invalid URL',
+      'That doesn\'t look like a valid URL. Paste a full link like https://youtube.com/watch?v=...');
+  }
+});
+urlInput.addEventListener('focus', () => {
+  if (appState === 'idle') statusZone.innerHTML = '';
+});
+
+// ══════════════════════════════════════════════════════════
+//  DOWNLOAD BUTTON
+// ══════════════════════════════════════════════════════════
+dlBtn.onclick = () => {
+  const v = urlInput.value.trim();
+  if (!isUrl(v)) return;
+  if (appState === 'processing' || appState === 'fetching-info') return;
+  if (!backendOk) {
+    showStatus('warn', 'Backend not connected',
+      'Please connect your backend first using the banner at the top of the page.');
+    return;
+  }
+  kickOff(v);
+};
+
+// ══════════════════════════════════════════════════════════
+//  SET VALUE (from paste/input)
+// ══════════════════════════════════════════════════════════
+function setValue(val) {
+  urlInput.value = val;
+  dlBtn.disabled = !isUrl(val);
+  if (isUrl(val) && appState === 'idle') {
+    if (!backendOk) {
+      showStatus('warn', 'Backend not connected',
+        'Please connect your backend using the banner above before downloading.');
+      return;
+    }
+    kickOff(val);
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  MAIN FLOW
+// ══════════════════════════════════════════════════════════
+async function kickOff(url) {
+  if (appState === 'processing') return;
+  appState = 'fetching-info';
+  dlBtn.disabled = true;
+  metaCache = null;
+
+  statusZone.innerHTML = renderProgressCard('Fetching video info…', 15, 'fetch', null);
+
+  // Step 1: fetch metadata
+  const infoRes = await apiCall(`/api/info?url=${encodeURIComponent(url)}`);
+  if (infoRes.error) {
+    showStatus('error', 'Could not fetch info', infoRes.error);
+    appState = 'idle'; dlBtn.disabled = false;
+    return;
+  }
+  metaCache = infoRes.data;
+  appState = 'idle'; dlBtn.disabled = false;
+
+  // Step 2: large-file warning
+  const bytes = metaCache?.filesize_bytes || 0;
+  if (bytes > 1.5 * 1024 ** 3) {
+    showSizeWarn(metaCache, url);
+  } else {
+    startDownload(url);
+  }
+}
+
+async function startDownload(url) {
+  if (appState === 'processing') return;
+  appState = 'processing';
+  dlBtn.disabled = true;
+
+  statusZone.innerHTML = renderProgressCard('Starting download…', 5, 'analyze', metaCache);
+
+  const startRes = await apiCall('/api/download', {
+    method:  'POST',
+    headers: {'Content-Type':'application/json'},
+    body:    JSON.stringify({url, format: selectedFmt}),
+  });
+
+  if (startRes.error) {
+    showStatus('error', 'Failed to start download', startRes.error);
+    appState = 'idle'; dlBtn.disabled = false;
+    return;
+  }
+
+  listenProgress(startRes.data.job_id, metaCache);
+}
+
+// ══════════════════════════════════════════════════════════
+//  SSE PROGRESS
+// ══════════════════════════════════════════════════════════
+function listenProgress(jobId, meta) {
+  if (sseSource) { sseSource.close(); sseSource = null; }
+
+  const endpoint = `${BACKEND_URL}/api/progress/${jobId}`;
+  try { sseSource = new EventSource(endpoint); }
+  catch (e) {
+    showStatus('error', 'Connection error', 'Could not open progress stream. ' + e.message);
+    appState = 'idle'; dlBtn.disabled = false;
+    return;
+  }
+
+  sseSource.onmessage = e => {
+    let job;
+    try { job = JSON.parse(e.data); } catch { return; }
+
+    if (job.status === 'error') {
+      sseSource.close(); sseSource = null;
+      showStatus('error', 'Download failed', job.error || 'An unknown error occurred.');
+      appState = 'idle'; dlBtn.disabled = false;
+      return;
+    }
+
+    if (job.status === 'done') {
+      sseSource.close(); sseSource = null;
+      appState = 'done';
+      // Trigger browser download
+      const dlUrl = `${BACKEND_URL}/api/file/${jobId}`;
+      window.location.href = dlUrl;
+      renderReadyCard(job, jobId, meta);
+      return;
+    }
+
+    // Map stage → label and pipeline step
+    const stageMap = {
+      starting: ['Starting pipeline…', 'fetch'],
+      fetching: ['Fetching video info…', 'fetch'],
+      analyzing:['Analyzing streams…', 'analyze'],
+      downloading:['Downloading… ' + (job.speed ? job.speed + ' KB/s' : ''), 'mux'],
+      muxing:   ['Muxing with FFmpeg…', 'mux'],
+    };
+    const [lbl, pipeStage] = stageMap[job.stage] || ['Processing…', 'analyze'];
+    statusZone.innerHTML = renderProgressCard(lbl, job.progress || 0, pipeStage, meta);
+  };
+
+  sseSource.onerror = () => {
+    if (sseSource) { sseSource.close(); sseSource = null; }
+    if (appState === 'processing') {
+      showStatus('error', 'Connection lost',
+        'Lost connection to the server mid-download. Please try again.');
+      appState = 'idle'; dlBtn.disabled = false;
+    }
+  };
+}
+
+// ══════════════════════════════════════════════════════════
+//  API CALL WRAPPER (all errors handled, never crashes)
+// ══════════════════════════════════════════════════════════
+async function apiCall(path, opts = {}, timeoutMs = 30000) {
+  const url = BACKEND_URL + path;
+  try {
+    const res = await fetchWithTimeout(url, opts, timeoutMs);
+    const text = await res.text();
+
+    // Detect HTML responses (means backend is down / wrong URL)
+    if (text.trim().startsWith('<')) {
+      if (res.status === 404) return { error: 'API endpoint not found (404). Is the backend running?' };
+      return { error: `Backend returned HTML instead of JSON (status ${res.status}). The server may be starting up — try again in 30 seconds.` };
+    }
+
+    let data;
+    try { data = JSON.parse(text); }
+    catch { return { error: `Invalid response from server: ${text.slice(0, 100)}` }; }
+
+    if (!res.ok || data.error) {
+      return { error: data.error || `Server error (${res.status})` };
+    }
+    return { data };
+
+  } catch (err) {
+    if (err.name === 'AbortError') return { error: 'Request timed out. The server may be slow or offline.' };
+    if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+      return { error: 'Cannot reach the backend server. Check that it is running and the URL is correct.' };
+    }
+    return { error: err.message || 'Unknown network error' };
+  }
+}
+
+async function fetchWithTimeout(url, opts, ms) {
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...opts, signal: ctrl.signal });
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  RENDER HELPERS
+// ══════════════════════════════════════════════════════════
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderProgressCard(label, pct, stage, meta) {
+  const pipeline = ['fetch','analyze','mux','finalize'];
+  const names    = ['Fetch','Analyze','Mux','Finalize'];
+  const si       = pipeline.indexOf(stage);
+  const stepsHtml = pipeline.map((s,i) => {
+    const cls = i < si ? 'done' : i === si ? 'active' : '';
+    return `<div class="step ${cls}">${names[i]}</div>`;
+  }).join('');
+
+  const thumb = meta?.thumbnail
+    ? `<img src="${esc(meta.thumbnail)}" alt="" onerror="this.style.display='none'">`
+    : `<div class="thumb-ph"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16v12H4zM10 8l6 4-6 4V8z"/></svg><span>LOADING</span></div>`;
+
+  const dur   = meta?.duration ? `<div class="dur-badge">${esc(meta.duration)}</div>` : '';
+  const title = meta?.title
+    ? `<div class="meta-title">${esc(meta.title)}</div>`
+    : `<div class="meta-title" style="color:var(--text-dim);font-style:italic">Retrieving info…</div>`;
+  const stats = meta ? `<div class="stats">
+    <div class="stat"><span class="sl">Resolution</span><span class="sv"><span class="res-badge">${esc(meta.resolution||'?')}</span></span></div>
+    <div class="stat"><span class="sl">Est. Size</span><span class="sv">${esc(meta.filesize||'?')}</span></div>
+    <div class="stat"><span class="sl">Duration</span><span class="sv">${esc(meta.duration||'?')}</span></div>
+    <div class="stat"><span class="sl">Platform</span><span class="sv">${esc(meta.platform||'?')}</span></div>
+  </div>` : '';
+
+  return `<div class="card">
+    <div class="preview-row">
+      <div class="thumb-wrap">${thumb}${dur}</div>
+      <div class="meta">
+        <div class="meta-platform">${esc((meta?.platform||'Detecting').toUpperCase())}</div>
+        ${title}${stats}
+      </div>
+    </div>
+    <div class="prog-wrap">
+      <div class="prog-head">
+        <span class="prog-lbl">${esc(label)}</span>
+        <span class="prog-pct">${Math.round(pct)}%</span>
+      </div>
+      <div class="prog-track">
+        <div class="prog-fill" style="width:${Math.min(pct,100)}%"></div>
+      </div>
+      <div class="steps">${stepsHtml}</div>
+    </div>
+  </div>`;
+}
+
+function renderReadyCard(job, jobId, meta) {
+  const title = esc((job.title || meta?.title || 'Video').slice(0, 44));
+  const sz    = esc(job.filesize || meta?.filesize || '');
+  statusZone.innerHTML = `<div class="ready-card">
+    <div class="ready-info">
+      <div class="ready-icon">✅</div>
+      <div>
+        <div class="ready-title">Download started!</div>
+        <div class="ready-sub">${title}… · ${selectedFmt.toUpperCase()} · ${sz}</div>
+      </div>
+    </div>
+    <a href="${BACKEND_URL}/api/file/${jobId}" class="save-btn">
+      <svg viewBox="0 0 16 16"><path d="M8 1v9M5 7l3 3 3-3M2 12v2h12v-2"
+           stroke="#000" fill="none" stroke-width="1.8" stroke-linecap="round"/></svg>
+      Save Again
+    </a>
+  </div>`;
+  dlBtn.disabled = false;
+  setTimeout(resetState, 8000);
+}
+
+function showStatus(type, title, msg) {
+  const icons = { error:'✖', warn:'⚠️', info:'ℹ️' };
+  statusZone.innerHTML = `<div class="alert ${type}">
+    <div class="alert-icon">${icons[type]||'•'}</div>
+    <div>
+      <div class="alert-title">${esc(title)}</div>
+      <div class="alert-msg">${esc(msg)}</div>
+    </div>
+  </div>`;
+}
+
+function showSizeWarn(meta, url) {
+  statusZone.innerHTML = `<div class="alert warn">
+    <div class="alert-icon">⚠️</div>
+    <div>
+      <div class="alert-title">Large File Warning</div>
+      <div class="alert-msg">
+        This video is approximately <strong>${esc(meta.filesize)}</strong>.
+        Make sure you have enough disk space.<br><br>
+        <em>${esc(meta.title)}</em>
+      </div>
+      <div class="alert-actions">
+        <button class="abtn abtn-primary" id="confirm-dl">Continue Download</button>
+        <button class="abtn abtn-ghost"   id="cancel-dl">Cancel</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('confirm-dl').onclick = () => startDownload(url);
+  document.getElementById('cancel-dl').onclick  = () => {
+    statusZone.innerHTML = ''; appState = 'idle'; dlBtn.disabled = false;
+  };
+}
+
+function resetState() {
+  appState = 'idle'; metaCache = null;
+  statusZone.innerHTML = '';
+  dlBtn.disabled = true; urlInput.value = '';
+  if (sseSource) { sseSource.close(); sseSource = null; }
+}
+
+function isUrl(s) {
+  try { const u = new URL(s); return u.protocol === 'https:' || u.protocol === 'http:'; }
+  catch { return false; }
+}
+
+// ══════════════════════════════════════════════════════════
+//  INIT — check backend on load
+// ══════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', initBackend);
+</script>
+</body>
+</html>
